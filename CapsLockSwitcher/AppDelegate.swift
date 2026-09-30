@@ -84,8 +84,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         var description: String { self.rawValue }
     }
 
-    private var isShowingPermissionAlert = false
-
     private var statusItem: NSStatusItem?
     private var appMenu: NSMenu?
     private var statusMenuItem: NSMenuItem?
@@ -313,23 +311,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
 
-        // --- 9. Trigger Alerts ASYNCHRONOUSLY ---
-        // Only show permission alert if needed AND state actually requires it AND not already showing
-        if determinedState == .permissionsRequired && !isShowingPermissionAlert && (context == "Launch" || stateChanged) {
-            isShowingPermissionAlert = true // Prevent spamming alerts
-            Logger.permissions.info("Queueing Permission Alert (Context: \(context), State Changed: \(stateChanged))")
+        // Use the native prompt once at launch; periodic checks stay silent.
+        if determinedState == .permissionsRequired && context == "Launch" {
             DispatchQueue.main.async { [weak self] in
-                guard let strongSelf = self else { return }
-                strongSelf.showAccessibilityInstructionsAlert(triggeredByUserAction: false)
-                // Reset flag only *after* alert is dismissed (or potentially immediately if runModal blocks)
-                // Doing it here allows re-triggering if needed after dismissal
-                strongSelf.isShowingPermissionAlert = false
+                self?.requestAccessibilityPermission(openSettings: false)
             }
         } else if determinedState == .configuring && context == "Launch" {
-             // Show welcome only on first launch into configuring state
-             DispatchQueue.main.async { [weak self] in
-                 self?.showWelcomeMessageIfNeeded()
-             }
+            DispatchQueue.main.async { [weak self] in
+                self?.showWelcomeMessageIfNeeded()
+            }
         }
         Logger.state.debug("State determination and UI setup complete (Context: \(context)).")
     }
@@ -498,50 +488,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: - Alert Logic (Called Asynchronously from Main Thread)
 
-    private func showAccessibilityInstructionsAlert(triggeredByUserAction: Bool) {
+    /// Ask macOS to register this app in its permission list and show the native prompt.
+    /// The user must still enable access; polling detects that change automatically.
+    private func requestAccessibilityPermission(openSettings: Bool) {
         dispatchPrecondition(condition: .onQueue(DispatchQueue.main))
-
-        // Prevent multiple alerts stacking up
-        guard NSApplication.shared.modalWindow == nil else {
-            Logger.permissions.warning("Accessibility alert skipped: Another modal window (likely an alert) is already visible.")
-            return
+        if !checkAccessibilityPermissions(promptUserIfNeeded: false) {
+            _ = checkAccessibilityPermissions(promptUserIfNeeded: true)
         }
-
-        let alert = NSAlert()
-        alert.messageText = "Permissions Required"
-        alert.informativeText = "\(Bundle.main.appName) needs Accessibility access to monitor Caps Lock key.\n\nPlease go to System Settings > Privacy & Security > Accessibility, find and enable \(Bundle.main.appName), or add it manually using the '+' button."
-        if triggeredByUserAction {
-            alert.informativeText += "\n\nIf it's enabled but not working, try removing \(Bundle.main.appName) using the '-' button, then add it back again."
-            alert.informativeText += "\n\nAfter granting/fixing permissions, click the menu bar icon again."
-        } else {
-             alert.informativeText += "\n\nAfter granting permissions, click the menu bar icon to continue setup, or wait a few seconds for the app to re-check." // Updated text
-        }
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "Open Accessibility Settings")
-        alert.addButton(withTitle: "OK")
-        
-        Logger.permissions.info("Displaying Accessibility Instructions Alert.")
-        let response = alert.runModal() // This blocks until dismissed
-
-        if response == .alertFirstButtonReturn {
-            // Try opening the specific pane
-            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-                NSWorkspace.shared.open(url)
-                Logger.permissions.info("Accessibility Alert: Opened settings pane.")
-            } else {
-                Logger.permissions.error("Failed to create URL for settings pane.")
-                // Fallback to opening System Settings main page
+        if openSettings {
+            guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else {
+                return
+            }
+            if !NSWorkspace.shared.open(url) {
                 NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/System Settings.app"))
             }
         }
-        Logger.permissions.info("Accessibility Alert: Dismissed (response: \(response.rawValue)).")
-
-        // Re-check state immediately after dismissal, maybe permissions were granted
-        // No need for the isShowing flag reset here as runModal was blocking
-        isShowingPermissionAlert = false // Reset flag here after alert is gone
-        Logger.state.info("Re-determining state after permission alert dismissed.")
-        determineStateAndSetupUI(context: "Permission Alert Dismissed")
-
+        determineStateAndSetupUI(context: "Permission Request")
     }
 
     private func showWelcomeAlert() {
@@ -578,9 +540,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
      @objc func showWelcomeGuideAction() { showWelcomeAlert() }
      @objc func openAccessibilitySettings() {
-        // No longer need the isShowing flag management here, showAccessibilityInstructionsAlert handles it
-        DispatchQueue.main.async { [weak self] in // Ensure it runs after current event loop cycle
-             self?.showAccessibilityInstructionsAlert(triggeredByUserAction: true)
+        DispatchQueue.main.async { [weak self] in
+            self?.requestAccessibilityPermission(openSettings: true)
         }
     }
 
@@ -627,7 +588,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
                 appMenu?.addItem(NSMenuItem.separator()) // Separator
 
-                let guideItem = NSMenuItem(title: "Show Permissions Guide", action: #selector(openAccessibilitySettings), keyEquivalent: "")
+                let guideItem = NSMenuItem(title: "Open Permission Settings", action: #selector(openAccessibilitySettings), keyEquivalent: "")
                 guideItem.target = self // Target is self
                 guideItem.isEnabled = true
                 appMenu?.addItem(guideItem)

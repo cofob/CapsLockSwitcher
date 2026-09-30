@@ -1,5 +1,18 @@
 # CapsLockSwitcher for macOS
 
+This is [cofob’s fork](https://github.com/cofob/CapsLockSwitcher) of [doasync/CapsLockSwitcher](https://github.com/doasync/CapsLockSwitcher). It uses the native macOS permission prompt to register the app in System Settings automatically. You still control the permission toggle. The app is unsandboxed because its Accessibility event tap and HID remapping require system access.
+
+Install the fork through Homebrew:
+
+```sh
+brew tap cofob/tap https://github.com/cofob/tap
+brew install --cask cofob/tap/capslockswitcher
+```
+
+On first launch, follow the native permission prompt, enable CapsLockSwitcher in the settings list, then select two keyboard layouts from its menu. The app detects permission changes automatically; manual addition with the + button is normally unnecessary. This permission is named Accessibility on older macOS releases and may appear as Device Control and Data Access on newer releases.
+
+Releases are universal Intel and Apple Silicon builds requiring macOS 15.2 or later. They are ad-hoc signed, not notarized; the tap handles quarantine removal during installation. GitHub Actions builds and validates every push and publishes ZIP assets for version tags.
+
 [![macOS](https://img.shields.io/badge/macOS-13.0+-blue.svg)](https://www.apple.com/macos)
 [![License](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE.md)
 
@@ -33,7 +46,7 @@ CapsLockSwitcher solves these problems by providing a dedicated, fast, and targe
 
 ### Recommended
 
-1.  Go to the [**Releases**](https://github.com/doasync/CapsLockSwitcher/releases) page of this repository. 
+1.  Go to the [**Releases**](https://github.com/cofob/CapsLockSwitcher/releases) page of this repository.
 2.  Download the latest `.app` file.
 3.  Copy `CapsLockSwitcher.app` to your `/Applications` folder.
 4.  Launch `CapsLockSwitcher` from your Applications folder.
@@ -46,9 +59,9 @@ CapsLockSwitcher solves these problems by providing a dedicated, fast, and targe
 1.  **Launch the App:** Double-click `CapsLockSwitcher` in your Applications folder. A new icon (⚠️ or ⌨️...) will appear in your menu bar.
 2.  **Grant Permissions:**
     *   The app *requires* **Accessibility** permissions to monitor the Caps Lock key.
-    *   If permissions are needed, the icon will be ⚠️. Click it and select "Show Permissions Guide" or follow the automatic prompt (if shown).
+    *   If permissions are needed, the icon will be ⚠️. Follow the native macOS prompt or click it and select "Open Permission Settings".
     *   This will open **System Settings > Privacy & Security > Accessibility**.
-    *   Find `CapsLockSwitcher` in the list and enable the toggle next to it. If it's not listed, drag `CapsLockSwitcher.app` from your Applications folder into the list or use the '+' button.
+    *   Find `CapsLockSwitcher` in the list and enable the toggle next to it. The app requests registration in this list automatically. If it is still absent, use "Open Permission Settings" from its menu to retry the request.
     *   *Note:* You might need to unlock the settings panel with your password.
 3.  **Configure Layouts:**
     *   Once permissions are granted, the icon should change to ⌨️....
@@ -83,7 +96,7 @@ The app **does not** log your keystrokes or send any data anywhere. It only chec
 
 ## Building from Source
 
-1.  Clone this repository: `git clone https://github.com/doasync/CapsLockSwitcher.git`
+1.  Clone this repository: `git clone https://github.com/cofob/CapsLockSwitcher.git`
 2.  Open `CapsLockSwitcher.xcodeproj` in Xcode (ensure you have a recent version compatible with Swift and macOS 13+ features like `SMAppService`).
 3.  Select the `CapsLockSwitcher` target and your Mac as the run destination.
 4.  Build the project (Product > Build or Cmd+B). The resulting `.app` bundle will be in the Products directory.
