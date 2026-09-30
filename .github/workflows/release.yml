@@ -37,11 +37,15 @@ jobs:
           entitlements = plistlib.loads(data) if data.strip() else {}
           assert not entitlements.get("com.apple.security.app-sandbox", False), "Accessibility requests require an unsandboxed app"
           info = plistlib.loads(Path("build/Build/Products/Release/CapsLockSwitcher.app/Contents/Info.plist").read_bytes())
-          assert info["CFBundleShortVersionString"] == "1.2.1"
+          assert info["CFBundleShortVersionString"] == "1.2.2"
           assert info["LSMinimumSystemVersion"] == "15.2"
           PY
           ditto -c -k --keepParent "$app" CapsLockSwitcher.app.zip
           shasum -a 256 CapsLockSwitcher.app.zip
+      - name: Check Caps Lock state
+        run: |
+          swiftc CapsLockSwitcher/CapsLockController.swift Tests/CapsLockToggle/main.swift -o build/check-caps-lock
+          build/check-caps-lock
       - uses: actions/upload-artifact@v4
         with:
           name: capslockswitcher-release
